@@ -1,0 +1,59 @@
+
+name: Pipeline Failure - DevOps Agent POC
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  simulate-failure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Run Application Tests
+        id: test_step
+        continue-on-error: true
+        run: |
+          echo "Running application tests..."
+          echo "Simulating failure for POC"
+          exit 1
+
+      # NEW: publish Errors metric so CloudWatch alarm can evaluate
+      - name: Send Error Metric to CloudWatch
+        if: steps.test_step.outcome == 'failure'
+        run: |
+          aws cloudwatch put-metric-data \
+            --namespace AWS-GitHub \
+            --metric-name Errors \
+            --value 1 \
+            --unit Count \
+            --dimensions Pipeline=NegativeTest,Run=${{ github.run_number }}
+          echo "Published Errors=1 to CloudWatch"
+
+      # Keep your SNS alert but as a single line to avoid YAML issues
+      - name: Send Alert to DevOps Team
+        if: steps.test_step.outcome == 'failure'
+        run: |
+          aws sns publish \
+            --topic-arn arn:aws:sns:us-east-1:035238984620:devops-agent-alerts \
+            --subject "GitHub Pipeline Failed - Investigation Required" \
+            --message "Repository=${{ github.repository }}, Branch=${{ github.ref_name }}, Workflow=${{ github.workflow }}, RunNumber=${{ github.run_number }}, RunID=${{ github.run_id }}, Link=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "Alert sent"
+
+      - name: Log Failure Details
+        if: steps.test_step.outcome == 'failure'
+        run: |
+          echo "Failure Summary:"
+          echo "- Workflow failed at: $(date)"
+          echo "- Investigation can be started in AWS DevOps Agent console"
+          echo "- Space ID: 61c7d7b3-c4be-4b13-9f9d-b701733424ab"

@@ -1,0 +1,61 @@
+name: Pipeline Failure - DevOps Agent POC
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  simulate-failure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      
+      - name: Run Application Tests
+        id: test_step
+        continue-on-error: true
+        run: |
+          echo "🧪 Running application tests..."
+          echo "Testing critical functionality..."
+          echo "❌ Test failed: Database connection timeout"
+          exit 1
+      
+      - name: Send Alert to DevOps Team
+        if: steps.test_step.outcome == 'failure'
+        run: |
+          echo "📧 Sending failure alert..."
+          
+          aws sns publish \
+            --topic-arn arn:aws:sns:us-east-1:035238984620:devops-agent-alerts \
+            --subject "🚨 GitHub Pipeline Failed - Investigation Required" \
+            --message "Pipeline Failure Alert
+          
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref_name }}
+          Workflow: ${{ github.workflow }}
+          Run Number: ${{ github.run_number }}
+          Run ID: ${{ github.run_id }}
+          
+          View Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          Action Required: Please investigate using AWS DevOps Agent
+          Agent Space ID: 61c7d7b3-c4be-4b13-9f9d-b701733424ab"
+          
+          echo "✅ Alert sent successfully!"
+          echo "🔍 DevOps team notified - they can now investigate using AWS DevOps Agent"
+      
+      - name: Log Failure Details
+        if: steps.test_step.outcome == 'failure'
+        run: |
+          echo "📝 Failure Summary:"
+          echo "- Workflow failed at: $(date)"
+          echo "- Investigation can be started in AWS DevOps Agent console"
+          echo "- Space ID: 61c7d7b3-c4be-4b13-9f9d-b701733424ab"
