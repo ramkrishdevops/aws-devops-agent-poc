@@ -1,40 +1,29 @@
-name: Simple CI Pipeline
+name: Python Build Pipeline - TC03
 
 on:
   push:
-    branches: [main]
-
-permissions:
-  id-token: write
-  contents: read
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout source code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: us-east-1
-      
-      - name: Verify AWS Connection
+          python-version: "3.10"
+
+      - name: Install dependencies
         run: |
-          echo "Testing AWS connection..."
-          aws sts get-caller-identity
-      
-      - name: Run Tests
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
         run: |
-          echo "Running tests..."
-          echo "All tests passed!"
-      
-      - name: Report Success to CloudWatch
-        run: |
-          aws cloudwatch put-metric-data \
-            --namespace AWS-GitHub \
-            --metric-name Success \
-            --value 1 \
-            --dimensions Pipeline=CI,Run=${{ github.run_number }}
-          echo "✅ Success metric sent"
+          python -m unittest discover -v

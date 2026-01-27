@@ -1,8 +1,0 @@
-# Step 1: Create invalid YAML in .github/workflows/build.yml
-name: Build Pipeline
-on: [push]
-jobs:
-  build:
-  runs-on: ubuntu-latest  # Missing indentation
-    steps:
-      - uses: actions/checkout@v3
