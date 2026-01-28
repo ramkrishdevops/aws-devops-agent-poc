@@ -1,0 +1,82 @@
+name: TC-04 - GitHub to ECS Runtime Failure (Simulated)
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-and-fail:
+    name: Simulate ECS Deployment & Runtime Failure
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # -------------------------------
+      # Simulated Deployment Step
+      # -------------------------------
+      - name: Simulate ECS Deployment
+        run: |
+          echo "Simulating ECS deployment..."
+          sleep 5
+          echo "Deployment completed successfully"
+
+      # -------------------------------
+      # Simulated ECS Runtime Failure
+      # -------------------------------
+      - name: Simulate ECS Task Crash (Bad ENV)
+        run: |
+          echo "Simulating ECS task failure due to invalid environment variable"
+          aws cloudwatch put-metric-data \
+            --namespace AWS-ECS \
+            --metric-name TaskCrash \
+            --value 1 \
+            --unit Count \
+            --dimensions Service=sample-app,Env=prod
+          echo "Published ECS TaskCrash metric"
+
+      # -------------------------------
+      # Simulated ECS Logs
+      # -------------------------------
+      - name: Publish ECS Error Logs
+        run: |
+          LOG_GROUP="/ecs/sample-app"
+          LOG_STREAM="runtime-error-$(date +%s)"
+
+          aws logs create-log-group \
+            --log-group-name "$LOG_GROUP" || true
+
+          aws logs create-log-stream \
+            --log-group-name "$LOG_GROUP" \
+            --log-stream-name "$LOG_STREAM" || true
+
+          TIMESTAMP=$(date +%s000)
+
+          aws logs put-log-events \
+            --log-group-name "$LOG_GROUP" \
+            --log-stream-name "$LOG_STREAM" \
+            --log-events timestamp=$TIMESTAMP,message="Container failed to start: missing required environment variable DB_HOST"
+
+          echo "Published simulated ECS runtime error logs"
+
+      # -------------------------------
+      # Optional: Notify / Mark Failure
+      # -------------------------------
+      - name: Mark Job as Failed
+        run: |
+          echo "Failing job to represent ECS runtime crash"
+          exit 1
+
