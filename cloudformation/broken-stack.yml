@@ -1,0 +1,17 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: TC-10 CloudFormation Failure Demo
+
+Parameters:
+  InstanceType:
+    Type: String
+    AllowedValues:
+      - t3.micro
+      - t3.small
+    Description: EC2 instance type
+
+Resources:
+  DummyBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: tc10-demo-bucket-${AWS::AccountId}
+

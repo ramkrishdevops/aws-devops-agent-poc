@@ -1,0 +1,31 @@
+name: TC-10 - CloudFormation Failure
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy CloudFormation Stack (Expected to Fail)
+        run: |
+          aws cloudformation deploy \
+            --stack-name tc10-broken-stack \
+            --template-file cloudformation/broken-stack.yml \
+            --parameter-overrides InstanceType=t2.micro \
+            --capabilities CAPABILITY_NAMED_IAM
+
